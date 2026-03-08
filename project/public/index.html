@@ -1,7 +1,5 @@
 
-adBookings(){
-  statusMsg.textContent="Բեռնվում է...";
-  try{<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="hy">
 <head>
 <meta charset="UTF-8"/>
@@ -131,7 +129,7 @@ tr:hover{background:#f0f0f0;}
   </div>
 
   <div class="box">
-    <h2>🚫 Չաշխատանքային օրեր</h2>
+    <h2>🚫 վոչ աշխատանքային օրեր</h2>
 
     <h3>📌 Փակել կոնկրետ ամսաթիվ</h3>
     <input type="date" id="closedDateInput">
@@ -156,7 +154,7 @@ tr:hover{background:#f0f0f0;}
 </div>
 
 <script>
-const API_URL="http://localhost:3000/api";
+const API_URL="/api";
 
 const passwordInput=document.getElementById("passwordInput");
 const loginBtn=document.getElementById("loginBtn");
@@ -204,7 +202,9 @@ loginBtn.onclick=async()=>{
 
 refreshBtn.onclick=loadBookings;
 
-async function lo
+async function loadBookings(){
+  statusMsg.textContent="Բեռնվում է...";
+  try{
     const res=await fetch(`${API_URL}/all-bookings`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -360,4 +360,6 @@ setInterval(()=>{
 </script>
 
 </body>
+
 </html>
+
