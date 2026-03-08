@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barbershop</title>
+<link rel="stylesheet" href="tun.css">
+
+</head>
+
+<body>
+<header>
+    <p class="p"> CHARENC BARBERSHOP</p>
+   
+     <button  onclick="openNav()">Պատվիրել</button>
+    
+   <div id="mySidenav" class="sidenav">
+    
+  <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">x</a>
+  <h4>Ընտրել վարսավիրին</h4>
+  <ol>
+      <li id="bookBtn">Սամվել Սարգսյան</li><br>
+    <li id="bookBtn">Արման Արամյան</li><br>
+    <li id="bookBtn">Արթուր Առաքելյան</li><br>
+    <li id="bookBtn">Վարթան Վառրթանյան</li> 
+  </ol>
+</div>
+</header>
+
+
+
+<div id="bookingModal">
+<label>Անուն</label><input type="text" id="nameInput" placeholder="Օրինակ՝ Արման"/>
+<label>Հեռախոս</label><input type="text" id="phoneInput" placeholder="Օրինակ՝ 077123456"/>
+<label>Օր</label><select id="daySelect"></select>
+<label>Ժամ</label><select id="timeSelect"></select>
+<div class="modal-buttons">
+<button id="confirmBooking">Հաստատել</button>
+<button id="closeModal">Փակել</button>
+</div>
+<p id="statusMsg"></p>
+</div>
+<div class="hero">
+    
+📞 +374-77-12-34-56
+
+</div>
+<div class="text1">
+     <div class="text2">  
+        <div class="card">
+            <img src="im/mens-hair-cut-min.jpg" alt="">
+            <h3>Տղամարդու սանրվածք</h3>
+            <p>Ժամանակակից ոճ</p>
+            <p><strong>3000 ֏</strong></p>
+            
+        </div>
+        
+        <div class="card">
+            <img src="im/Picsart_24-06-06_10-03-38-354-scaled.jpg">
+            <h3>Մորուք</h3>
+            <p>Մոդելավորում</p>
+            <p><strong>2000 ֏</strong></p>
+        </div>
+        
+        <div class="card">
+            <img src="im/images.jpg">
+            <h3>VIP Փաթեթ</h3>
+            <p>Լիարժեք խնամք</p>
+            <p><strong>5000 ֏</strong></p>
+        </div>
+     </div>    
+        
+    <div class="text">
+        
+           <h1>  Քո ոճը սկսվում է այստեղ</h1>
+    <P>
+    Մեզ համար սանրվածքը պարզապես ծառայություն չէ — դա արվեստ է։
+    Մենք ստեղծում ենք կերպար, որը արտահայտում է քո վստահությունը, քո բնավորությունը և քո անհատականությունը։
+    <br>
+    Մեր վարպետները աշխատում են բարձր ճշգրտությամբ և ժամանակակից տեխնիկաներով՝ ապահովելով մաքուր գծեր, կատարյալ անցումներ և մանրուքների նկատմամբ ուշադրություն։ Յուրաքանչյուր հաճախորդ ստանում է անհատական մոտեցում, խորհրդատվություն և այնպիսի արդյունք, որը երկար կմնա կատարյալ։
+    
+    Մենք առաջարկում ենք՝<br>
+    ✔ Ժամանակակից և դասական սանրվածքներ<br>
+    ✔ Մաքուր և պրոֆեսիոնալ սափրում<br>
+    ✔ Մորուքի ձևավորում և խնամք<br>
+    ✔ Մանկական սանրվածքներ<br>
+    ✔ Premium սպասարկում հարմարավետ միջավայրում<br><br>
+    
+    Մեր միջավայրը ստեղծված է, որպեսզի դու քեզ զգաս վստահ և հանգիստ։
+     Մաքուր տարածք, որակյալ գործիքներ և պրոֆեսիոնալ մոտեցում՝
+      յուրաքանչյուր այցը դարձնելով հաճելի փորձառություն։<br><br>
+    
+    💬 Մենք չենք պարզապես կտրում մազերը։
+    Մենք ստեղծում ենք քո նոր կերպարը։<br><br>
+    
+    📅 Ամրագրիր քո այցը այսօր և զգա իրական barber փորձը։
+        </p>
+        <div class="hasc">
+             Մեր հասցեն է քաղաք ` Չառենցավան `
+        </div>
+    </div>  
+</div> 
+<div class="footer">
+<footer>
+© 2026 Barbershop
+</footer>
+</div>
+<!-- Lightbox -->
+
+<div id="lightbox" onclick="closeImage()">
+<img id="lightbox-img">
+</div>
+
+<script>
+function openNav() {
+  document.getElementById("mySidenav").style.width = "480px";
+}
+
+function closeNav() {
+  document.getElementById("mySidenav").style.width = "0";
+}
+
+const API_URL="http://localhost:3000/api";
+const bookBtn=document.getElementById("bookBtn");
+const modal=document.getElementById("bookingModal");
+const closeModal=document.getElementById("closeModal");
+const daySelect=document.getElementById("daySelect");
+const timeSelect=document.getElementById("timeSelect");
+const confirmBooking=document.getElementById("confirmBooking");
+const statusMsg=document.getElementById("statusMsg");
+const nameInput=document.getElementById("nameInput");
+const phoneInput=document.getElementById("phoneInput");
+
+bookBtn.onclick=async()=>{modal.style.display="block";statusMsg.textContent="";loadNextWeekDays();await loadTimesWithAvailability();}
+closeModal.onclick=()=>{modal.style.display="none";}
+daySelect.onchange=async()=>{await loadTimesWithAvailability();}
+
+function loadNextWeekDays(){
+daySelect.innerHTML="";const today=new Date();
+for(let i=0;i<=6;i++){let d=new Date();d.setDate(today.getDate()+i);let value=d.toISOString().split("T")[0];let label=d.toLocaleDateString("hy-AM",{weekday:"long",year:"numeric",month:"long",day:"numeric"});let option=document.createElement("option");option.value=value;option.textContent=label;daySelect.appendChild(option);}
+}
+
+function generateAllSlots(){let slots=[],startHour=10,endHour=23;for(let h=startHour;h<endHour;h++){for(let m=0;m<60;m+=30){slots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return slots;}
+
+async function loadTimesWithAvailability(){
+timeSelect.innerHTML="";
+const selectedDate=daySelect.value;
+const allSlots=generateAllSlots();
+try{const res=await fetch(`${API_URL}/bookings?date=${selectedDate}`);const bookedTimes=await res.json();
+allSlots.forEach(slot=>{const option=document.createElement("option");option.value=slot;if(bookedTimes.includes(slot)){option.textContent=`${slot} (զբաղված)`;option.disabled=true;}else{option.textContent=slot;}timeSelect.appendChild(option);});
+}catch(err){statusMsg.textContent="❌ Չհաջողվեց բեռնել ժամերը";}
+}
+
+confirmBooking.onclick=async()=>{
+const name=nameInput.value.trim(),phone=phoneInput.value.trim(),date=daySelect.value,time=timeSelect.value;
+if(!name||!phone){statusMsg.textContent="❗ Լրացրեք անունը և հեռախոսը";return;}
+statusMsg.textContent="Ուղարկվում է...";
+try{const res=await fetch(`${API_URL}/book`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,phone,date,time})});const data=await res.json();
+if(res.ok){statusMsg.textContent="✅ Պատվերը հաջողությամբ ընդունվեց";await loadTimesWithAvailability();}else{statusMsg.textContent="❌ "+data.message;}}catch(err){statusMsg.textContent="❌ Սերվերի սխալ";}
+}</script
+
+
+
+</body>
+</html>

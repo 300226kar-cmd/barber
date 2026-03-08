@@ -1,0 +1,363 @@
+
+adBookings(){
+  statusMsg.textContent="Բեռնվում է...";
+  try{<!DOCTYPE html>
+<html lang="hy">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Panel</title>
+
+<style>
+body{font-family:Arial;background:#f5f5f5;padding:30px;}
+input,select,button{padding:10px;border-radius:10px;border:1px solid #ccc;font-size:15px;}
+button{border:none;cursor:pointer;}
+#loginBtn,#refreshBtn,#addDateBtn,#addWeekdayBtn{background:black;color:white;margin-bottom:15px;}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 0 10px rgba(0,0,0,0.15);}
+th,td{padding:12px;border-bottom:1px solid #ddd;text-align:left;}
+th{background:black;color:white;}
+tr:hover{background:#f0f0f0;}
+.deleteBtn{background:rgb(255, 0, 89);color:rgb(245, 242, 242);border-radius:8px;padding:8px 12px;}
+#adminPanel{display:none;margin-top:20px;}
+#statusMsg{margin-top:10px;font-size:14px;}
+
+.box{
+    background:white;
+    padding:20px;
+    border-radius:15px;
+    margin-bottom:20px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+.closed-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#eee;
+    padding:10px;
+    border-radius:10px;
+    margin-top:10px;
+}
+.removeBtn{
+    background:red;
+    color:white;
+    padding:7px 12px;
+    border-radius:8px;
+}
+@media (max-width: 800px){
+
+  body{
+    padding:15px;
+  }
+
+  h2{
+    display: block;
+    font-size:20px;
+  }
+
+  input,select,button{
+    width:300px;
+    font-size:16px;
+    box-sizing:border-box;
+
+  }
+  button{
+    width: 200px;
+    margin-top:10px
+  }
+  
+
+  table{
+    width: auto;
+    display:block;
+    font-size:10px;
+  }
+ td{
+  padding: 8px;
+ }
+  th{
+    width: auto;
+    padding: 5px;
+  }
+
+  .box{
+    width: 350px;
+    padding:15px;
+  }
+   .deleteBtn{
+    width: 60px;
+ 
+   }
+  .closed-item{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:10px;
+  }
+
+  .removeBtn{
+ 
+    width:100%;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<h2>🔒 Admin Login</h2>
+<input type="password" id="passwordInput" placeholder="Գաղտնաբառ"/>
+<button id="loginBtn">Մուտք</button>
+<p id="statusMsg"></p>
+
+<div id="adminPanel">
+
+  <div class="box">
+    <h2>📋 Պատվերների ցուցակ</h2>
+    <button id="refreshBtn">🔄 Թարմացնել</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Անուն</th>
+          <th>Հեռախոս</th>
+          <th>Օր</th>
+          <th>Ժամ</th>
+          <th>Գործողություն</th>
+        </tr>
+      </thead>
+      <tbody id="bookingsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h2>🚫 Չաշխատանքային օրեր</h2>
+
+    <h3>📌 Փակել կոնկրետ ամսաթիվ</h3>
+    <input type="date" id="closedDateInput">
+    <button id="addDateBtn">➕ Ավելացնել</button>
+
+    <h3>📌 Փակել շաբաթվա օր</h3>
+    <select id="weekdaySelect">
+      <option value="0">Կիրակի</option>
+      <option value="1">Երկուշաբթի</option>
+      <option value="2">Երեքշաբթի</option>
+      <option value="3">Չորեքշաբթի</option>
+      <option value="4">Հինգշաբթի</option>
+      <option value="5">Ուրբաթ</option>
+      <option value="6">Շաբաթ</option>
+    </select>
+    <button id="addWeekdayBtn">➕ Ավելացնել</button>
+
+    <h3>📌 Փակ օրերի ցուցակ</h3>
+    <div id="closedList"></div>
+  </div>
+
+</div>
+
+<script>
+const API_URL="http://localhost:3000/api";
+
+const passwordInput=document.getElementById("passwordInput");
+const loginBtn=document.getElementById("loginBtn");
+const statusMsg=document.getElementById("statusMsg");
+
+const adminPanel=document.getElementById("adminPanel");
+const refreshBtn=document.getElementById("refreshBtn");
+const bookingsBody=document.getElementById("bookingsBody");
+
+const closedDateInput=document.getElementById("closedDateInput");
+const addDateBtn=document.getElementById("addDateBtn");
+
+const weekdaySelect=document.getElementById("weekdaySelect");
+const addWeekdayBtn=document.getElementById("addWeekdayBtn");
+
+const closedList=document.getElementById("closedList");
+
+let adminPassword="";
+
+const weekdayNames={
+  0:"Կիրակի",
+  1:"Երկուշաբթի",
+  2:"Երեքշաբթի",
+  3:"Չորեքշաբթի",
+  4:"Հինգշաբթի",
+  5:"Ուրբաթ",
+  6:"Շաբաթ"
+};
+
+loginBtn.onclick=async()=>{
+  adminPassword=passwordInput.value.trim();
+  if(!adminPassword){
+    statusMsg.textContent="❗ Մուտքագրեք գաղտնաբառ";
+    return;
+  }
+
+  const ok=await loadBookings();
+  if(ok){
+    adminPanel.style.display="block";
+    statusMsg.textContent="✅ Մուտքը հաջող է";
+    passwordInput.value="";
+    loadClosedDays();
+  }
+};
+
+refreshBtn.onclick=loadBookings;
+
+async function lo
+    const res=await fetch(`${API_URL}/all-bookings`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({password:adminPassword})
+    });
+
+    const data=await res.json();
+
+    if(!res.ok){
+      statusMsg.textContent="❌ "+data.message;
+      return false;
+    }
+
+    bookingsBody.innerHTML="";
+
+    if(!data.length){
+      bookingsBody.innerHTML=`<tr><td colspan="6">Պատվերներ չկան</td></tr>`;
+      statusMsg.textContent="📭 Պատվերներ չկան";
+      return true;
+    }
+
+    data.sort((a,b)=>new Date(a.date+" "+a.time)-new Date(b.date+" "+b.time));
+
+    data.forEach(b=>{
+      const row=document.createElement("tr");
+      row.innerHTML=`
+        <td>${b.id}</td>
+        <td>${b.name}</td>
+        <td>${b.phone}</td>
+        <td>${b.date}</td>
+        <td>${b.time}</td>
+        <td><button class="deleteBtn" onclick="deleteBooking (${b.id})">"🗑 Ջնջել"</button></td>
+      `;
+      bookingsBody.appendChild(row);
+    });
+
+    statusMsg.textContent=`✅ Բեռնվեց (${data.length} պատվեր)`;
+    return true;
+
+  }catch(err){
+    statusMsg.textContent="❌ Սերվերի սխալ";
+    return false;
+  }
+}
+
+window.deleteBooking = async function(id){
+  if(!confirm("Վստա՞հ եք, որ ուզում եք ջնջել պատվերը")) return;
+
+  try{
+    const res=await fetch(`${API_URL}/delete-booking`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({password:adminPassword,id})
+    });
+
+    const data=await res.json();
+
+    if(!res.ok){
+      alert("❌ "+data.message);
+      return;
+    }
+
+    alert("✅ Պատվերը ջնջվեց");
+    loadBookings();
+
+  }catch(err){
+    alert("❌ Սերվերի սխալ");
+  }
+};
+
+// -------- CLOSED DAYS --------
+
+async function loadClosedDays(){
+  try{
+    const res=await fetch(`${API_URL}/closed-days`);
+    const data=await res.json();
+
+    closedList.innerHTML="";
+
+    // weekdays
+    data.weekdays.forEach(day=>{
+      const div=document.createElement("div");
+      div.className="closed-item";
+      div.innerHTML=`
+        <span>📅 Փակ օր (շաբաթվա օր)՝ <b>${weekdayNames[day]}</b></span>
+        <button class="removeBtn" onclick="removeClosedDay('weekday', ${day})">✖</button>
+      `;
+      closedList.appendChild(div);
+    });
+
+    // dates
+    data.dates.forEach(date=>{
+      const div=document.createElement("div");
+      div.className="closed-item";
+      div.innerHTML=`
+        <span>📅 Փակ օր (ամսաթիվ)՝ <b>${date}</b></span>
+        <button class="removeBtn" onclick="removeClosedDay('date', '${date}')">✖</button>
+      `;
+      closedList.appendChild(div);
+    });
+
+    if(!data.weekdays.length && !data.dates.length){
+      closedList.innerHTML="<p>վոչ աշխատանքային օր</p>";
+    }
+
+  }catch(err){
+    closedList.innerHTML="<p>❌ Չհաջողվեց բեռնել փակ օրերը</p>";
+  }
+}
+
+addDateBtn.onclick = async ()=>{
+  const date = closedDateInput.value;
+  if(!date){alert("Ընտրեք ամսաթիվ"); return;}
+
+  await fetch(`${API_URL}/add-closed-day`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:adminPassword,type:"date",value:date})
+  });
+
+  closedDateInput.value="";
+  loadClosedDays();
+};
+
+addWeekdayBtn.onclick = async ()=>{
+  const day = parseInt(weekdaySelect.value);
+
+  await fetch(`${API_URL}/add-closed-day`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:adminPassword,type:"weekday",value:day})
+  });
+
+  loadClosedDays();
+};
+
+window.removeClosedDay = async function(type,value){
+  await fetch(`${API_URL}/remove-closed-day`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:adminPassword,type,value})
+  });
+
+  loadClosedDays();
+};
+
+setInterval(()=>{
+  if(adminPassword){
+    loadBookings();
+  }
+},30000);
+
+</script>
+
+</body>
+</html>
