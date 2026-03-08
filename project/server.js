@@ -1,3 +1,4 @@
+process.env.DATABASE_URL
 require("dotenv").config();
 
 const express = require("express");
@@ -22,6 +23,14 @@ const ADMIN_PASSWORD = "1234"; // փոխիր եթե ուզում ես
 // փակ օրերի պահում (memory)
 let closedWeekdays = []; // օրինակ [0,6]
 let closedDates = [];    // օրինակ ["2026-02-25"]
+
+pool.query(`
+CREATE TABLE IF NOT EXISTS closed_days (
+id SERIAL PRIMARY KEY,
+type TEXT,
+value TEXT
+)
+`);
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -208,3 +217,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🚀 Server running on port " + PORT);
 });
+
