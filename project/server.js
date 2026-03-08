@@ -1,36 +1,12 @@
-process.env.DATABASE_URL
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
 const path = require("path");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
-
-// static files
-app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-const ADMIN_PASSWORD = "1234"; // փոխիր եթե ուզում ես
-
-// փակ օրերի պահում (memory)
-let closedWeekdays = []; // օրինակ [0,6]
-let closedDates = [];    // օրինակ ["2026-02-25"]
-
-pool.query(`
-CREATE TABLE IF NOT EXISTS closed_days (
-id SERIAL PRIMARY KEY,
-type TEXT,
-value TEXT
-)
-`);
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -38,37 +14,51 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ստեղծում ենք bookings table եթե չկա
-pool.query(`
-  CREATE TABLE IF NOT EXISTS bookings (
-    id BIGINT PRIMARY KEY,
-    name TEXT,
-    phone TEXT,
-    date TEXT,
-    time TEXT
-  )
-`).then(() => {
-  console.log("✅ Table ready");
-}).catch(err => {
-  console.error("❌ Table creation error:", err);
-});
+// ================= DATABASE TABLES =================
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bookings (
+      id BIGINT PRIMARY KEY,
+      name TEXT,
+      phone TEXT,
+      date TEXT,
+      time TEXT
+    )
+  `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS closed_days (
+      id SERIAL PRIMARY KEY,
+      type TEXT,
+      value TEXT
+    )
+  `);
+}
+
+initDB().then(() => console.log("✅ Tables ready"))
+        .catch(err => console.error("❌ DB init error:", err));
+
+// ================= ADMIN PASSWORD =================
+const ADMIN_PASSWORD = "1234"; // Փոխիր, եթե ուզում ես
+
+// ================= STATIC FILES =================
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // ================= BOOKINGS =================
 
 // GET զբաղված ժամերը
 app.get("/api/bookings", async (req, res) => {
   const { date } = req.query;
-
   try {
     const result = await pool.query(
-      "SELECT time FROM bookings WHERE date = $1",
+      "SELECT time FROM bookings WHERE date=$1",
       [date]
     );
-
-    const bookedTimes = result.rows.map(row => row.time);
+    const bookedTimes = result.rows.map(r => r.time);
     res.json(bookedTimes);
-
   } catch (err) {
     res.status(500).json({ message: "Database error" });
   }
@@ -77,30 +67,27 @@ app.get("/api/bookings", async (req, res) => {
 // POST նոր պատվեր
 app.post("/api/book", async (req, res) => {
   const { name, phone, date, time } = req.body;
-
   if (!name || !phone || !date || !time)
     return res.status(400).json({ message: "Բոլոր դաշտերը պարտադիր են" });
 
-  // ստուգում փակ օրերը
-  const dayNumber = new Date(date).getDay();
-
-  if (closedWeekdays.includes(dayNumber) || closedDates.includes(date)) {
-    return res.status(400).json({ message: "Այս օրը փակ է" });
-  }
-
   try {
-    const check = await pool.query(
-      "SELECT * FROM bookings WHERE date = $1 AND time = $2",
-      [date, time]
-    );
+    // ստուգել փակ օրերը
+    const dayNumber = new Date(date).getDay();
+    const closedResult = await pool.query("SELECT type, value FROM closed_days");
+    const closedWeekdays = closedResult.rows.filter(r => r.type==='weekday').map(r => parseInt(r.value));
+    const closedDates = closedResult.rows.filter(r => r.type==='date').map(r => r.value);
 
-    if (check.rows.length > 0)
-      return res.status(400).json({ message: "Ժամը արդեն զբաղված է" });
+    if (closedWeekdays.includes(dayNumber) || closedDates.includes(date)) {
+      return res.status(400).json({ message: "Այս օրը փակ է" });
+    }
+
+    // ստուգել, եթե արդեն կա
+    const check = await pool.query("SELECT * FROM bookings WHERE date=$1 AND time=$2", [date, time]);
+    if (check.rows.length > 0) return res.status(400).json({ message: "Ժամը արդեն զբաղված է" });
 
     const id = Date.now();
-
     await pool.query(
-      "INSERT INTO bookings (id, name, phone, date, time) VALUES ($1, $2, $3, $4, $5)",
+      "INSERT INTO bookings(id, name, phone, date, time) VALUES($1,$2,$3,$4,$5)",
       [id, name, phone, date, time]
     );
 
@@ -111,92 +98,74 @@ app.post("/api/book", async (req, res) => {
   }
 });
 
-// ================= ADMIN =================
-
-// ստանալ բոլոր պատվերները
+// GET բոլոր պատվերները (ADMIN)
 app.post("/api/all-bookings", async (req, res) => {
   const { password } = req.body;
-
-  if (password !== ADMIN_PASSWORD)
-    return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
-
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
   try {
-    const result = await pool.query(
-      "SELECT * FROM bookings ORDER BY date, time"
-    );
+    const result = await pool.query("SELECT * FROM bookings ORDER BY date, time");
     res.json(result.rows);
-
   } catch (err) {
     res.status(500).json({ message: "Database error" });
   }
 });
 
-// ջնջել պատվեր
+// DELETE պատվեր (ADMIN)
 app.post("/api/delete-booking", async (req, res) => {
   const { password, id } = req.body;
-
-  if (password !== ADMIN_PASSWORD)
-    return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
-
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
   try {
-    await pool.query("DELETE FROM bookings WHERE id = $1", [id]);
+    await pool.query("DELETE FROM bookings WHERE id=$1", [id]);
     res.json({ message: "Պատվերը ջնջվեց" });
-
   } catch (err) {
     res.status(500).json({ message: "Database error" });
   }
 });
-
 
 // ================= CLOSED DAYS =================
 
-// ստանալ փակ օրերը
-app.get("/api/closed-days", (req, res) => {
-  res.json({
-    weekdays: closedWeekdays,
-    dates: closedDates
-  });
+// GET փակ օրերը
+app.get("/api/closed-days", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT type, value FROM closed_days");
+    const weekdays = result.rows.filter(r => r.type==='weekday').map(r => parseInt(r.value));
+    const dates = result.rows.filter(r => r.type==='date').map(r => r.value);
+    res.json({ weekdays, dates });
+  } catch (err) {
+    res.status(500).json({ message: "Database error" });
+  }
 });
 
-// ավելացնել փակ օր
-app.post("/api/add-closed-day", (req, res) => {
+// ADD փակ օր (ADMIN)
+app.post("/api/add-closed-day", async (req, res) => {
   const { password, type, value } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
 
-  if (password !== ADMIN_PASSWORD)
-    return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
-
-  if (type === "weekday") {
-    if (!closedWeekdays.includes(value))
-      closedWeekdays.push(value);
+  try {
+    await pool.query(
+      "INSERT INTO closed_days(type, value) VALUES($1, $2) ON CONFLICT DO NOTHING",
+      [type, value]
+    );
+    res.json({ message: "Ավելացվեց" });
+  } catch (err) {
+    res.status(500).json({ message: "Database error" });
   }
-
-  if (type === "date") {
-    if (!closedDates.includes(value))
-      closedDates.push(value);
-  }
-
-  res.json({ message: "Ավելացվեց" });
 });
 
-// ջնջել փակ օր
-app.post("/api/remove-closed-day", (req, res) => {
+// REMOVE փակ օր (ADMIN)
+app.post("/api/remove-closed-day", async (req, res) => {
   const { password, type, value } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
 
-  if (password !== ADMIN_PASSWORD)
-    return res.status(401).json({ message: "Սխալ գաղտնաբառ" });
-
-  if (type === "weekday") {
-    closedWeekdays = closedWeekdays.filter(d => d !== value);
+  try {
+    await pool.query("DELETE FROM closed_days WHERE type=$1 AND value=$2", [type, value]);
+    res.json({ message: "Ջնջվեց" });
+  } catch (err) {
+    res.status(500).json({ message: "Database error" });
   }
-
-  if (type === "date") {
-    closedDates = closedDates.filter(d => d !== value);
-  }
-
-  res.json({ message: "Ջնջվեց" });
 });
 
-// ավտոմատ մաքրում
+// ================= CLEAN OLD BOOKINGS =================
 async function cleanOldBookings() {
   try {
     await pool.query("DELETE FROM bookings WHERE date::date < CURRENT_DATE");
@@ -205,16 +174,10 @@ async function cleanOldBookings() {
     console.error("Cleaning error:", err);
   }
 }
-
 cleanOldBookings();
-setInterval(cleanOldBookings, 5 * 60 * 1000);
-
+setInterval(cleanOldBookings, 5*60*1000);
 
 // ================= SERVER =================
-
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log("🚀 Server running on port " + PORT));
 
